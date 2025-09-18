@@ -39,6 +39,7 @@ export default function TabLayout() {
           title: 'Group',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="circle" color={color} />,
         }}
+      />
       <Tabs.Screen
         name="home"
         options={{
