@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   SafeAreaView,
@@ -11,11 +11,12 @@ import {
   Modal,
   Platform,
 } from 'react-native';
+import { useAbstraxionAccount } from '@burnt-labs/abstraxion-react-native';
 
 // ---------- 数据模型 & 工具 ----------
 
 type Post = { id: string; user: string; text: string; ts: number; school: string };
-const DEFAULT_SCHOOL = 'MIT';
+const DEFAULT_SCHOOL = 'ZJU';
 const uid = () => Math.random().toString(36).slice(2);
 const formatTime = (ts: number) => {
   const diff = Math.max(0, Date.now() - ts);
@@ -30,9 +31,9 @@ const formatTime = (ts: number) => {
 const canPostText = (s: string) => { const n = s.trim().length; return n > 0 && n <= 500; };
 
 const seedPosts: Record<string, Post[]> = {
-  MIT: [
-    { id: uid(), user: '匿名学⽣-7Q', text: '6.824 作业硬核但收获很大，大家互相加油～', ts: Date.now() - 1000 * 60 * 45, school: 'MIT' },
-    { id: uid(), user: '匿名学⽣-MM', text: '校图书馆新开通了数据库访问，记得试试！', ts: Date.now() - 1000 * 60 * 120, school: 'MIT' },
+  ZJU: [
+    { id: uid(), user: '匿名学⽣-7Q', text: '6.824 作业硬核但收获很大，大家互相加油～', ts: Date.now() - 1000 * 60 * 45, school: 'ZJU' },
+    { id: uid(), user: '匿名学⽣-MM', text: '校图书馆新开通了数据库访问，记得试试！', ts: Date.now() - 1000 * 60 * 120, school: 'ZJU' },
   ],
 };
 
@@ -42,7 +43,16 @@ const CirclesJoined: React.FC = () => {
   const [school] = useState<string>(DEFAULT_SCHOOL);
   const [posts, setPosts] = useState<Post[]>(() => seedPosts[school] ? [...seedPosts[school]] : []);
   const [text, setText] = useState('');
-  const [nick] = useState(() => `夜行侠-${Math.random().toString(36).slice(2,6)}`);
+  const abstraxionAccount = useAbstraxionAccount();
+  const { data: account } = abstraxionAccount || {};
+  const nick = useMemo(() => {
+    if (account?.bech32Address) {
+      const a = account.bech32Address;
+      const tail = a.slice(-6);
+      return `夜行侠-${tail}`;
+    }
+    return `夜行侠-${Math.random().toString(36).slice(2,6)}`;
+  }, [account?.bech32Address]);
   const [showWelcome, setShowWelcome] = useState(true);
 
   const canPost = canPostText(text);

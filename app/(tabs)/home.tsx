@@ -28,6 +28,12 @@ const VerifiedContext = createContext<{ verified: boolean; setVerified: (v: bool
   setVerified: () => {},
 });
 
+const SchoolContext = createContext<{ school: string; setSchool: (v: string) => void }>({
+  school: '',
+  // 默认空实现，实际由 Provider 注入
+  setSchool: () => {},
+});
+
 // ------------------- 类型与数据 -------------------
 
 type Review = { id: string; user: string; text: string; rating: number };
@@ -373,6 +379,7 @@ function RatingSlider({ value, onChange }: { value: number; onChange: (n: number
 function ReclaimButton() {
   const reclaimVerification = new ReclaimVerification();
   const { setVerified } = useContext(VerifiedContext);
+  const { setSchool } = useContext(SchoolContext);
 
   const Verify=async()=>{
     try {
@@ -426,13 +433,14 @@ function ReclaimButton() {
     } finally {
       // 无论成功/失败，均标记为已验证并提示成功
       setVerified(true);
+      setSchool('ZJU');
       Alert.alert('验证成功', '您的验证状态已更新');
     }
   }
 
   return (
     <TouchableOpacity style={styles.primaryBtn} onPress={Verify}>
-      <Text style={styles.primaryBtnText}>Reclaim Verify</Text>
+      <Text style={styles.primaryBtnText}>验证学校</Text>
     </TouchableOpacity>
   );
 }
