@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Platform, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useAbstraxionAccount } from '@burnt-labs/abstraxion-react-native';
 
 const ShimmerText: React.FC<{ text: string; style?: any }> = ({ text, style }) => {
   const opacity = useRef(new Animated.Value(0.3)).current;
@@ -25,6 +26,10 @@ export default function Welcome() {
   const router = useRouter();
   const [showInfo, setShowInfo] = useState(false);
   const TOOLTIP_TEXT = "我们发挥XION链抽象技术前所未有的优势，为你分配一个完全随机的隐私身份。在mentorX，任何人都是夜行侠，现实中没有人会知道这个隐私身份是谁，以保护你的隐私与表达自由";
+
+  const abstraxionAccount = useAbstraxionAccount();
+  const { login, isConnected, isConnecting } = abstraxionAccount || {};
+
   return (
     <SafeAreaView style={styles.root}>
       <View style={styles.header}>
@@ -46,14 +51,26 @@ export default function Welcome() {
           <Text style={styles.infoDotText}>?</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.primaryBtn}
-          onPress={() => {
-            router.push('/home');
-          }}
-        >
-          <Text style={styles.primaryBtnText}>匿名进入</Text>
-        </TouchableOpacity>
+        {!isConnected ? (
+          <TouchableOpacity
+            style={[styles.primaryBtn, isConnecting && { opacity: 0.6 }]}
+            onPress={login}
+            disabled={!!isConnecting}
+          >
+            <Text style={styles.primaryBtnText}>
+              {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.primaryBtn}
+            onPress={() => {
+              router.push('/home');
+            }}
+          >
+            <Text style={styles.primaryBtnText}>匿名进入</Text>
+          </TouchableOpacity>
+        )}
 
         <Text style={styles.tip}>Powered by XION</Text>
         {Platform.OS === 'android' ? (

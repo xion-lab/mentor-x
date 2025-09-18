@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   SafeAreaView,
   View,
@@ -6,7 +6,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Alert,
+  Clipboard,
 } from 'react-native';
+import { useAbstraxionAccount } from '@burnt-labs/abstraxion-react-native';
 
 // ---------------------- Props ----------------------
 
@@ -27,6 +30,21 @@ const ProfileNative: React.FC<ProfileProps> = ({
 }) => {
   const [revealed, setRevealed] = useState(false);
 
+  // Abstraxion account hooks
+  const abstraxionAccount = useAbstraxionAccount();
+  const { data: account, login, logout, isConnected, isConnecting } = abstraxionAccount || {};
+
+  // Effective address and nickname based on connection state
+  const effectiveAddress = account?.bech32Address || address;
+  const effectiveName = useMemo(() => {
+    if (account?.bech32Address) {
+      const a = account.bech32Address;
+      const tail = a.slice(-6);
+      return `夜行侠-${tail}`;
+    }
+    return displayName;
+  }, [account?.bech32Address, displayName]);
+
   return (
     <SafeAreaView style={styles.root}>
       <View style={styles.header}>
@@ -41,16 +59,33 @@ const ProfileNative: React.FC<ProfileProps> = ({
               <Text style={{ color: '#FFF', fontWeight: '800' }}>夜</Text>
             </View>
             <View style={{ marginLeft: 12 }}>
-              <Text style={styles.title}>{displayName}</Text>
+              <Text style={styles.title}>{effectiveName}</Text>
               <Text style={styles.subtle}>匿名、客观、可留存 · on XION</Text>
             </View>
           </View>
         </View>
 
-        {/* 地址 */}
+        {/* 地址（来自已连接钱包，否则显示占位）*/}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>XION 区块链地址</Text>
-          <Text style={styles.mono}>{shorten(address)}</Text>
+          <View style={styles.addressRow}>
+            <Text style={[styles.mono, { flexShrink: 1 }]} numberOfLines={1}>
+              {shorten(effectiveAddress)}
+            </Text>
+            <TouchableOpacity
+              style={styles.copyBtn}
+              onPress={async () => {
+                try {
+                  await Clipboard.setString(effectiveAddress);
+                  Alert.alert('已复制', '地址已复制到剪贴板');
+                } catch (e) {
+                  Alert.alert('失败', '复制失败，请重试');
+                }
+              }}
+            >
+              <Text style={styles.copyBtnText}>复制</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* CAO Points */}
@@ -74,14 +109,29 @@ const ProfileNative: React.FC<ProfileProps> = ({
           )}
         </View>
 
-        {/* 底部按钮（示例）*/}
+        {/* 连接/登出 与 导航 */}
         <View style={{ flexDirection: 'row', marginTop: 8 }}>
+          {/* 左：返回主页 */}
           <TouchableOpacity style={[styles.outlineBtn, { flex: 1, marginRight: 8 }]} disabled={!onNavigateHome} onPress={onNavigateHome}>
             <Text style={styles.outlineBtnText}>返回主页</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.outlineBtn, { flex: 1, opacity: 0.5 }]} disabled>
-            <Text style={styles.outlineBtnText}>圈子（稍后）</Text>
-          </TouchableOpacity>
+          {/* 右：根据连接状态显示 Connect 或 Logout */}
+          {!isConnected ? (
+            <TouchableOpacity
+              style={[styles.primaryBtn, { flex: 1, opacity: isConnecting ? 0.6 : 1 }]}
+              onPress={login}
+              disabled={!!isConnecting}
+            >
+              <Text style={styles.primaryBtnText}>{isConnecting ? '连接中…' : '连接钱包'}</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.outlineBtn, { flex: 1, borderColor: '#EF4444' }]}
+              onPress={logout}
+            >
+              <Text style={[styles.outlineBtnText, { color: '#EF4444' }]}>退出登录</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -117,6 +167,9 @@ const styles = StyleSheet.create({
   primaryBtnText: { color: '#FFFFFF', fontWeight: '700' },
   outlineBtn: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
   outlineBtnText: { color: '#111827', fontWeight: '700' },
+  addressRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  copyBtn: { marginLeft: 12, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10 },
+  copyBtnText: { color: '#111827', fontWeight: '700', fontSize: 12 },
 });
 
 export default ProfileNative;
