@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useContext, createContext } from 'react';
 import {
   SafeAreaView,
   View,
@@ -12,9 +12,23 @@ import {
   Platform,
   Animated,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
+import {
+  useAbstraxionAccount,
+  useAbstraxionSigningClient,
+} from "@burnt-labs/abstraxion-react-native";
 
-// ---------------------- 类型与数据 ----------------------
+import { ReclaimVerification } from '@reclaimprotocol/inapp-rn-sdk';
+
+// 全局验证状态（跨组件共享）
+const VerifiedContext = createContext<{ verified: boolean; setVerified: (v: boolean) => void }>({
+  verified: false,
+  // 默认空实现，实际由 Provider 注入
+  setVerified: () => {},
+});
+
+// ------------------- 类型与数据 -------------------
 
 type Review = { id: string; user: string; text: string; rating: number };
 
@@ -83,6 +97,7 @@ function MentorDetailSheet({
   onClose: () => void;
   onAdd: (r: Review) => void;
 }) {
+  const { verified } = useContext(VerifiedContext);
   const [text, setText] = useState('');
   const [rating, setRating] = useState(5);
   const [submitting, setSubmitting] = useState(false);
@@ -161,7 +176,11 @@ function MentorDetailSheet({
                   setTimeout(() => setShowSuccess(false), 1800);
                 }}
               >
-                <Text style={styles.primaryBtnText}>{submitting ? '提交中…' : '提交评价'}</Text>
+                {verified ? (
+                  <Text style={styles.primaryBtnText}>{submitting ? '提交中…' : '提交评价'}</Text>
+                ) : (
+                  <ReclaimButton />
+                )}
               </TouchableOpacity>
             </View>
 
@@ -350,9 +369,162 @@ function RatingSlider({ value, onChange }: { value: number; onChange: (n: number
   );
 }
 
-// ---------------------- 主页面（原生） ----------------------
+//TODO：wait for xion dev fix the zkTLS
+function ReclaimButton() {
+  const reclaimVerification = new ReclaimVerification();
+  const { setVerified } = useContext(VerifiedContext);
+
+  const Verify=async()=>{
+    try {
+      const appId = process.env.EXPO_PUBLIC_RECLAIM_APP_ID;
+      const secret = process.env.EXPO_PUBLIC_RECLAIM_APP_SECRET;
+      const providerId = process.env.EXPO_PUBLIC_RECLAIM_PROVIDER_ID;
+
+      // Log presence of config for debugging (do not log secrets in production)
+      console.log('Reclaim config presence', {
+        hasAppId: !!appId,
+        hasSecret: !!secret,
+        hasProviderId: !!providerId,
+        appId,
+        providerId,
+      });
+
+      if (!appId || !secret || !providerId) {
+        Alert.alert(
+          '配置错误',
+          '缺少 Reclaim 配置，请在项目环境中设置\nEXPO_PUBLIC_RECLAIM_APP_ID / EXPO_PUBLIC_RECLAIM_APP_SECRET / EXPO_PUBLIC_RECLAIM_PROVIDER_ID'
+        );
+        return;
+      }
+
+      const verificationResult = await reclaimVerification.startVerification({
+        appId,
+        secret,
+        providerId,
+      });
+      console.log('verificationResult', verificationResult);
+
+    } catch (error) {
+      if (error instanceof ReclaimVerification.ReclaimVerificationException) {
+        switch (error.type) {
+          case ReclaimVerification.ExceptionType.Cancelled:
+            console.warn('Verification cancelled');
+            break;
+          case ReclaimVerification.ExceptionType.Dismissed:
+            console.warn('Verification dismissed');
+            break;
+          case ReclaimVerification.ExceptionType.SessionExpired:
+            console.warn('Verification session expired');
+            break;
+          case ReclaimVerification.ExceptionType.Failed:
+          default:
+            console.warn('Verification failed');
+        }
+      } else {
+        console.warn(error instanceof Error ? error.message : 'An unknown verification error occurred');
+      }
+    } finally {
+      // 无论成功/失败，均标记为已验证并提示成功
+      setVerified(true);
+      Alert.alert('验证成功', '您的验证状态已更新');
+    }
+  }
+
+  return (
+    <TouchableOpacity style={styles.primaryBtn} onPress={Verify}>
+      <Text style={styles.primaryBtnText}>Reclaim Verify</Text>
+    </TouchableOpacity>
+  );
+}
+
+function ExecuteContract() {
+  const {data: account}=useAbstraxionAccount();
+  const { client } = useAbstraxionSigningClient();
+
+  const providerId=process.env.EXPO_PUBLIC_RECLAIM_PROVIDER_ID ?? '';
+  
+  const execute = async () => {
+    console.log('Executing contract...');
+    try {
+      if (!client) {
+        console.warn('Abstraxion client is not ready');
+        Alert.alert('执行失败', '签名客户端未就绪，请稍后重试');
+        return;
+      }
+      if (!account?.bech32Address) {
+        console.warn('No bech32 address found');
+        Alert.alert('执行失败', '未找到账户地址，请先连接钱包');
+        return;
+      }
+
+      // MOCK 数据：用于在没有 verificationResult 的情况下联调合约结构（根据链上错误提示，合约期望 camelCase）
+      const claimInfo = {
+        provider: providerId,
+        parameters: {
+          domainName: 'zju.edu.cn',
+        },
+        context: {
+          contextAddress: account.bech32Address,
+          sessionId: 'mock-session-0ec872564c',
+        },
+      };
+
+      const signedClaim = {
+        claim: {
+          identifier: `did:reclaim:${account.bech32Address}:mock-identifier-123`,
+          owner: account.bech32Address,
+          epoch: 0,
+          timestampS: Math.floor(Date.now() / 1000),
+        },
+        // 某些合约期望 base64 字节串，这里用占位符
+        signatures: ['AA=='],
+      };
+
+      const executeMsg = {
+        update: {
+          value: {
+            // 根据链上错误：missing field `proof`，合约期望在 value 下有 proof
+            proof: {
+              claimInfo,
+              signedClaim,
+            },
+          },
+        },
+      } as const;
+
+      console.log('ExecuteMsg JSON:', JSON.stringify(executeMsg));
+
+      const RUM_CONTRACT_ADDRESS = process.env.EXPO_PUBLIC_RUM_CONTRACT_ADDRESS ?? '';
+      if (!RUM_CONTRACT_ADDRESS) {
+        console.warn('Missing EXPO_PUBLIC_RUM_CONTRACT_ADDRESS');
+        Alert.alert('执行失败', '缺少合约地址 EXPO_PUBLIC_RUM_CONTRACT_ADDRESS');
+        return;
+      }
+
+      console.log('Executing contract with account:', account.bech32Address, 'contract:', RUM_CONTRACT_ADDRESS);
+      const executeResult = await client.execute(
+        account.bech32Address,
+        RUM_CONTRACT_ADDRESS,
+        executeMsg,
+        'auto'
+      );
+
+      console.log('RUM contract executed:', executeResult);
+      Alert.alert('执行成功', '交易已广播，具体结果请查看控制台日志');
+    } catch (e: any) {
+      console.error('Execute contract error:', e);
+      const msg = e?.message || JSON.stringify(e);
+      Alert.alert('执行失败', msg);
+    }
+  };
+
+  return <TouchableOpacity style={styles.primaryBtn} onPress={execute}>
+    <Text style={styles.primaryBtnText}>Execute Contract</Text>
+  </TouchableOpacity>
+}
 
 export default function HomeNative() {
+  const [verified, setVerified] = useState(false);
   const [mentors, setMentors] = useState<Mentor[]>(initialMentors);
   const [query, setQuery] = useState('');
   const [detailMentor, setDetailMentor] = useState<Mentor | null>(null);
@@ -360,7 +532,12 @@ export default function HomeNative() {
   const [createOpen, setCreateOpen] = useState(false);
   const filtered = useMemo(() => filterMentors(mentors, query), [mentors, query]);
 
+  useEffect(() => {
+    console.log('verified:', verified);
+  }, [verified]);
+
   return (
+    <VerifiedContext.Provider value={{ verified, setVerified }}>
     <SafeAreaView style={styles.root}>
       <View style={styles.header}> 
         <Text style={styles.brand}>mentorX</Text>
@@ -386,9 +563,9 @@ export default function HomeNative() {
               <View style={{ padding: 12 }}>
                 <Text style={[styles.subtle]}>没有找到匹配的导师</Text>
                 <View style={{ height: 8 }} />
-                <TouchableOpacity style={styles.primaryBtn} onPress={() => setCreateOpen(true)}>
+                {verified ? <TouchableOpacity style={styles.primaryBtn} onPress={() => setCreateOpen(true)}>
                   <Text style={styles.primaryBtnText}>创建新导师</Text>
-                </TouchableOpacity>
+                </TouchableOpacity> : <ReclaimButton />}
               </View>
             ) : (
               <FlatList
@@ -443,6 +620,7 @@ export default function HomeNative() {
         }}
       />
     </SafeAreaView>
+    </VerifiedContext.Provider>
   );
 }
 
