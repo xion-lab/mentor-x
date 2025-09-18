@@ -53,6 +53,9 @@ export default function RootLayout() {
       <AbstraxionProvider config={treasuryConfig}>
         <NavigationThemeProvider value={systemColorScheme === "dark" ? DarkTheme : DefaultTheme}>
           <Stack>
+            {/* Auth group: welcome and other auth screens (no tabs) */}
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            {/* Tabs group: main app with bottom tabs */}
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" />
           </Stack>

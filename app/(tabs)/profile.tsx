@@ -10,6 +10,7 @@ import {
   Clipboard,
 } from 'react-native';
 import { useAbstraxionAccount } from '@burnt-labs/abstraxion-react-native';
+import { useRouter } from 'expo-router';
 
 // ---------------------- Props ----------------------
 
@@ -26,7 +27,6 @@ const ProfileNative: React.FC<ProfileProps> = ({
   address = 'xion1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
   caoPoints = 0,
   displayName = '夜行侠',
-  onNavigateHome,
 }) => {
   const [revealed, setRevealed] = useState(false);
 
@@ -44,6 +44,8 @@ const ProfileNative: React.FC<ProfileProps> = ({
     }
     return displayName;
   }, [account?.bech32Address, displayName]);
+
+  const router = useRouter();
 
   return (
     <SafeAreaView style={styles.root}>
@@ -112,7 +114,7 @@ const ProfileNative: React.FC<ProfileProps> = ({
         {/* 连接/登出 与 导航 */}
         <View style={{ flexDirection: 'row', marginTop: 8 }}>
           {/* 左：返回主页 */}
-          <TouchableOpacity style={[styles.outlineBtn, { flex: 1, marginRight: 8 }]} disabled={!onNavigateHome} onPress={onNavigateHome}>
+          <TouchableOpacity style={[styles.outlineBtn, { flex: 1, marginRight: 8 }]} onPress={() => router.replace('/(tabs)/home')}>
             <Text style={styles.outlineBtnText}>返回主页</Text>
           </TouchableOpacity>
           {/* 右：根据连接状态显示 Connect 或 Logout */}
@@ -127,7 +129,10 @@ const ProfileNative: React.FC<ProfileProps> = ({
           ) : (
             <TouchableOpacity
               style={[styles.outlineBtn, { flex: 1, borderColor: '#EF4444' }]}
-              onPress={logout}
+              onPress={() => {
+                logout();
+                router.replace('/(auth)/welcome');
+              }}
             >
               <Text style={[styles.outlineBtnText, { color: '#EF4444' }]}>退出登录</Text>
             </TouchableOpacity>

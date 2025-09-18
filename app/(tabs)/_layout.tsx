@@ -34,13 +34,12 @@ export default function TabLayout() {
         },
       }}>
       <Tabs.Screen
-        name="index"
+        name="group"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Group',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="circle" color={color} />,
         }}
-      />
-       <Tabs.Screen
+      <Tabs.Screen
         name="home"
         options={{
           title: 'Main',
@@ -48,31 +47,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="welcome"
-        options={{
-          title: 'Welcome',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="sparkles" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="gear" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="group"
-        options={{
-          title: 'Group',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="circle" color={color} />,
         }}
       />
     </Tabs>

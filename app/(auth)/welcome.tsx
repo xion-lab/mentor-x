@@ -58,17 +58,17 @@ export default function Welcome() {
             disabled={!!isConnecting}
           >
             <Text style={styles.primaryBtnText}>
-              {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+              {isConnecting ? '进入中...' : '匿名进入'}
             </Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
             style={styles.primaryBtn}
             onPress={() => {
-              router.push('/home');
+              router.push('/(tabs)/home');
             }}
           >
-            <Text style={styles.primaryBtnText}>匿名进入</Text>
+            <Text style={styles.primaryBtnText}>进入主页</Text>
           </TouchableOpacity>
         )}
 
